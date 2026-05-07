@@ -7,8 +7,15 @@ const username = os.userInfo().username;
 const nasHome = `/volume1/homes/${username}`;
 const homeDir = fs.existsSync(nasHome) ? nasHome : os.homedir();
 
-const scanDir = process.argv[2] || path.join(homeDir, 'Photos');
-const outputFile = process.argv[3] || path.join(homeDir, 'nas-dedup-report.html');
+const args = process.argv.slice(2).filter(a => !a.startsWith('--'));
+const flags = process.argv.slice(2).filter(a => a.startsWith('--'));
+
+const scanDir = args[0] || path.join(homeDir, 'Photos');
+const outputFile = args[1] || path.join(homeDir, 'nas-dedup-report.html');
+const noFilter = flags.includes('--no-filter');
+
+// Synology system directories to skip by default
+const SKIP_DIRS = new Set(['#recycle', '@eaDir', '@Recently-Snapshot', '.SynologyWorkingDirectory']);
 
 async function walk(dir, files = []) {
   let entries;
@@ -19,6 +26,7 @@ async function walk(dir, files = []) {
   }
   for (const entry of entries) {
     const fullPath = path.join(dir, entry.name);
+    if (!noFilter && SKIP_DIRS.has(entry.name)) continue;
     if (entry.name === '#recycle') continue;
     if (entry.isDirectory()) {
       await walk(fullPath, files);
