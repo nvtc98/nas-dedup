@@ -47,7 +47,7 @@ app.post('/api/scan', (req, res) => {
 
   const { dir = `${homeDir}/Photos`, perceptual = false } = req.body;
   const resolved = path.resolve(dir);
-  if (!resolved.startsWith(homeDir + path.sep)) {
+  if (resolved !== homeDir && !resolved.startsWith(homeDir + path.sep)) {
     return res.status(400).json({ error: 'Directory outside user home' });
   }
 
