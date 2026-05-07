@@ -45,7 +45,9 @@ app.post('/api/scan', (req, res) => {
     return res.status(409).json({ error: 'Scan already in progress' });
   }
 
-  const { dir = `${homeDir}/Photos`, perceptual = false } = req.body;
+  const { dir: rawDir, perceptual = false } = req.body;
+  const dir = (rawDir === undefined || rawDir === null) ? `${homeDir}/Photos` : rawDir;
+  if (typeof dir !== 'string') return res.status(400).json({ error: 'dir must be a string' });
   const resolved = path.resolve(dir);
   if (resolved !== homeDir && !resolved.startsWith(homeDir + path.sep)) {
     return res.status(400).json({ error: 'Directory outside user home' });

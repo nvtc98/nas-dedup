@@ -15,6 +15,10 @@ document.getElementById('start-btn').addEventListener('click', async () => {
   const dir = document.getElementById('dir-input').value.trim();
   const perceptual = document.getElementById('perceptual-toggle').checked;
 
+  // Open SSE connection BEFORE starting scan to avoid race condition
+  showStep(2);
+  const es = startSSE();
+
   const res = await fetch('/api/scan', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -22,17 +26,18 @@ document.getElementById('start-btn').addEventListener('click', async () => {
   });
 
   if (res.status === 409) {
+    es.close();
+    showStep(1);
     alert('Scan đang chạy, vui lòng chờ.');
     return;
   }
   if (!res.ok) {
+    es.close();
+    showStep(1);
     const err = await res.json();
     alert('Lỗi: ' + err.error);
     return;
   }
-
-  showStep(2);
-  startSSE();
 });
 
 // --- Step 2: SSE progress ---
@@ -49,10 +54,28 @@ function startSSE() {
       text.textContent = `Đang scan... ${msg.count} / ${msg.total} files`;
     } else if (msg.type === 'done') {
       es.close();
-      const data = await fetch('/api/results').then(r => r.json());
-      allGroups = data;
-      renderResults();
-      showStep(3);
+      try {
+        const data = await fetch('/api/results').then(r => r.json());
+        allGroups = data;
+        renderResults();
+        showStep(3);
+      } catch {
+        text.textContent = 'Lỗi khi tải kết quả.';
+        const retryBtn = document.createElement('button');
+        retryBtn.textContent = 'Thử lại';
+        retryBtn.style.marginTop = '12px';
+        retryBtn.onclick = async () => {
+          try {
+            const data = await fetch('/api/results').then(r => r.json());
+            allGroups = data;
+            renderResults();
+            showStep(3);
+          } catch {
+            text.textContent = 'Không thể tải kết quả. Vui lòng restart server.';
+          }
+        };
+        document.getElementById('step-2').appendChild(retryBtn);
+      }
     } else if (msg.type === 'error') {
       es.close();
       text.textContent = 'Lỗi: ' + msg.message;
@@ -63,6 +86,8 @@ function startSSE() {
       document.getElementById('step-2').appendChild(retryBtn);
     }
   };
+
+  return es;
 }
 
 // --- Step 3: Render results ---
@@ -237,6 +262,8 @@ document.getElementById('delete-btn').addEventListener('click', async () => {
   })).filter(g => g.files.length > 1);
 
   selectedPaths.clear();
+  document.getElementById('select-all').checked = false;
+  document.getElementById('select-folder-all').checked = false;
   renderResults();
 
   // Show result message
