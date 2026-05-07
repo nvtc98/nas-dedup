@@ -19,7 +19,13 @@ const sseClients = [];
 
 function broadcast(data) {
   const msg = `data: ${JSON.stringify(data)}\n\n`;
-  sseClients.forEach(res => res.write(msg));
+  for (let i = sseClients.length - 1; i >= 0; i--) {
+    try {
+      sseClients[i].write(msg);
+    } catch {
+      sseClients.splice(i, 1);
+    }
+  }
 }
 
 app.get('/api/progress', (req, res) => {
@@ -41,7 +47,7 @@ app.post('/api/scan', (req, res) => {
 
   const { dir = `${homeDir}/Photos`, perceptual = false } = req.body;
   const resolved = path.resolve(dir);
-  if (!resolved.startsWith(homeDir)) {
+  if (!resolved.startsWith(homeDir + path.sep)) {
     return res.status(400).json({ error: 'Directory outside user home' });
   }
 
@@ -68,6 +74,13 @@ app.post('/api/scan', (req, res) => {
     activeWorker = null;
   });
 
+  activeWorker.on('exit', (code) => {
+    if (activeWorker !== null) {
+      broadcast({ type: 'error', message: `Worker exited unexpectedly (code ${code})` });
+      activeWorker = null;
+    }
+  });
+
   res.json({ ok: true });
 });
 
@@ -84,8 +97,12 @@ app.post('/api/delete', (req, res) => {
   const failed = [];
 
   for (const filePath of paths) {
+    if (typeof filePath !== 'string') {
+      failed.push({ path: filePath, reason: 'Path must be a string' });
+      continue;
+    }
     const resolved = path.resolve(filePath);
-    if (!resolved.startsWith(homeDir) || resolved.includes('..')) {
+    if (!resolved.startsWith(homeDir + path.sep)) {
       failed.push({ path: filePath, reason: 'Path not allowed' });
       continue;
     }
