@@ -1,6 +1,6 @@
-# NAS Dedup
+# nas-dedup
 
-Duplicate file checker for Synology NAS.
+Duplicate file checker for Synology NAS. Scan a directory, identify duplicate files by MD5 hash, and either review results in a web UI or export an HTML report.
 
 ## Requirements
 
@@ -9,7 +9,7 @@ Duplicate file checker for Synology NAS.
 
 ## Install
 
-Upload các file sau vào `/volume1/homes/<username>/nas-dedup/` qua File Station (không cần upload `node_modules`):
+Upload the following files to `/volume1/Shared/nas-dedup/` via File Station (do not upload `node_modules`):
 
 ```
 scan.js
@@ -20,58 +20,70 @@ package-lock.json
 public/
 ```
 
-Sau đó cài dependencies qua DSM Task Scheduler (xem bên dưới) hoặc SSH:
+Then install dependencies. Run once via Task Scheduler or SSH:
 
 ```bash
-cd /volume1/homes/<username>/nas-dedup
-npm install
+cd /volume1/Shared/nas-dedup && npm install
 ```
 
-## Cách 1 — Standalone scan (không cần SSH, dùng Task Scheduler)
+## Option 1 — Standalone scan (no SSH required)
 
-Chạy scan và xuất báo cáo HTML ra file. Phù hợp khi không có SSH.
+Scans a directory and writes an HTML report. Suitable when SSH is unavailable.
 
-**Chạy thủ công qua Task Scheduler:**
+**Run via DSM Task Scheduler:**
 
-DSM → Control Panel → Task Scheduler → Create → Scheduled Task → User-defined script
+Control Panel → Task Scheduler → Create → Scheduled Task → User-defined script
 
 ```bash
-node /volume1/homes/<username>/nas-dedup/scan.js
+node /volume1/Shared/nas-dedup/scan.js
 ```
 
-Kết quả lưu tại: `/volume1/homes/<username>/nas-dedup-report.html`
+Default scan directory: `~/Photos`
+Default output: `~/nas-dedup-report.html`
 
-Mở file trong File Station để xem danh sách duplicate. Xóa thủ công qua File Station.
+Open the report in File Station to review duplicates. Delete files manually.
 
-**Tùy chỉnh thư mục scan và output:**
+**Custom paths:**
 
 ```bash
-node /volume1/homes/<username>/nas-dedup/scan.js /volume1/homes/<username>/Photos /volume1/homes/<username>/report.html
+node /volume1/Shared/nas-dedup/scan.js ~/Photos ~/report.html
 ```
 
-## Cách 2 — Web UI (cần SSH hoặc cùng mạng LAN)
-
-Chạy server và truy cập qua browser để xem kết quả interactive và xóa file trực tiếp.
-
-**Yêu cầu thêm:** Recycle Bin bật trên shared folder (DSM → Control Panel → Shared Folder → Edit → Enable Recycle Bin)
+**Include Synology system directories** (e.g. `@eaDir` thumbnails — excluded by default):
 
 ```bash
-node /volume1/homes/<username>/nas-dedup/server.js
+node /volume1/Shared/nas-dedup/scan.js ~/Photos ~/report.html --no-filter
 ```
 
-Mở `http://<nas-ip>:8080` trong browser.
+## Option 2 — Web UI (requires SSH or LAN access)
 
-Chạy nền sau khi đóng SSH:
+Runs an Express server with an interactive 3-step wizard: configure → scan → review and delete.
+
+**Requires:** Recycle Bin enabled on the shared folder (DSM → Control Panel → Shared Folder → Edit → Enable Recycle Bin)
 
 ```bash
-nohup node /volume1/homes/<username>/nas-dedup/server.js > /volume1/homes/<username>/nas-dedup/app.log 2>&1 &
+node /volume1/Shared/nas-dedup/server.js
 ```
 
-Dừng server: `ps aux | grep server.js` rồi `kill <PID>`
+Open `http://<nas-ip>:8080` in your browser.
+
+Run in background after closing SSH:
+
+```bash
+nohup node /volume1/Shared/nas-dedup/server.js > /volume1/Shared/nas-dedup/app.log 2>&1 &
+```
+
+Stop: `ps aux | grep server.js` then `kill <PID>`
+
+Custom port:
+
+```bash
+PORT=5003 nohup node /volume1/Shared/nas-dedup/server.js > app.log 2>&1 &
+```
 
 ## Notes
 
-- File được move vào `#recycle` (Synology Recycle Bin), không xóa vĩnh viễn.
-- Mặc định scan thư mục `Photos` trong home directory.
-- Bỏ qua thư mục `#recycle` khi scan.
-
+- Files are moved to `#recycle` (Synology Recycle Bin), not permanently deleted.
+- Synology system directories (`@eaDir`, `#recycle`, `@Recently-Snapshot`) are excluded from scans by default.
+- Only scans within the running user's home directory (`/volume1/homes/<username>`).
+- Default scan directory: `~/Photos`.
