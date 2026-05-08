@@ -62,6 +62,8 @@ function generateHtml(groups, scanDir, duration) {
   const totalRecoverable = groups.reduce((sum, g) =>
     sum + g.files.slice(1).reduce((s, f) => s + f.size, 0), 0);
 
+  const displayPath = p => p.startsWith(homeDir) ? '~/' + p.slice(homeDir.length + 1) : p;
+
   const rows = groups.map(g => {
     return g.files.map((f, fi) => {
       const isKeep = fi === 0;
@@ -69,7 +71,7 @@ function generateHtml(groups, scanDir, duration) {
       const groupClass = g.id % 2 === 0 ? 'group-even' : 'group-odd';
       return `<tr class="${rowClass} ${groupClass}">
         <td>${isKeep ? '✓' : ''}</td>
-        <td>${f.path}</td>
+        <td>${displayPath(f.path)}</td>
         <td>#${g.id}</td>
         <td>${formatSize(f.size)}</td>
         <td>${formatDate(f.mtime)}</td>
@@ -101,7 +103,7 @@ function generateHtml(groups, scanDir, duration) {
 </head>
 <body>
   <h1>NAS Duplicate Report</h1>
-  <div class="meta">Scanned: ${scanDir} · Generated: ${new Date().toLocaleString('vi-VN')} · Duration: ${duration}s</div>
+  <div class="meta">Scanned: ${displayPath(scanDir)} · Generated: ${new Date().toLocaleString('vi-VN')} · Duration: ${duration}s</div>
   <div class="summary">
     <strong>${groups.length} nhóm trùng</strong> · ${formatSize(totalRecoverable)} có thể xóa
   </div>
