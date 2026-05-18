@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Đăng nhập — NAS Dedup</title>
+  <link rel="stylesheet" href="style.css">
+  <style>
+    body { display: flex; align-items: center; justify-content: center; min-height: 100vh; }
+    #login-box { background: white; border-radius: 8px; padding: 32px; width: 100%; max-width: 360px; }
+    h2 { font-size: 1.2rem; margin-bottom: 20px; }
+    #error-msg { color: #dc2626; font-size: 0.85rem; margin-bottom: 12px; display: none; }
+    input[type="password"] { width: 100%; padding: 8px 12px; border: 1px solid #ddd; border-radius: 6px; font-size: 0.95rem; margin-bottom: 12px; }
+    button { width: 100%; margin-top: 4px; padding: 10px; }
+  </style>
+</head>
+<body>
+  <div id="login-box">
+    <h2>NAS Duplicate Checker</h2>
+    <div id="error-msg"></div>
+    <label for="username">Tên đăng nhập DSM</label>
+    <input type="text" id="username" autocomplete="username">
+    <label for="password">Mật khẩu</label>
+    <input type="password" id="password" autocomplete="current-password">
+    <button id="login-btn">Đăng nhập</button>
+  </div>
+  <script>
+    async function login() {
+      const username = document.getElementById('username').value.trim();
+      const password = document.getElementById('password').value;
+      const errEl = document.getElementById('error-msg');
+      errEl.style.display = 'none';
+
+      if (!username || !password) {
+        errEl.textContent = 'Vui lòng nhập đầy đủ thông tin.';
+        errEl.style.display = 'block';
+        return;
+      }
+
+      const btn = document.getElementById('login-btn');
+      btn.disabled = true;
+      btn.textContent = 'Đang đăng nhập...';
+
+      const res = await fetch('/api/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password })
+      });
+      const data = await res.json();
+
+      if (res.ok) {
+        location.href = '/';
+      } else {
+        errEl.textContent = data.error || 'Đăng nhập thất bại.';
+        errEl.style.display = 'block';
+        btn.disabled = false;
+        btn.textContent = 'Đăng nhập';
+      }
+    }
+
+    document.getElementById('login-btn').addEventListener('click', login);
+    document.getElementById('password').addEventListener('keydown', e => {
+      if (e.key === 'Enter') login();
+    });
+  </script>
+</body>
+</html>

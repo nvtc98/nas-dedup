@@ -1,5 +1,24 @@
 let allGroups = [];
 let selectedPaths = new Set();
+let homeDir = '';
+
+// --- Auth check ---
+async function initAuth() {
+  const res = await fetch('/api/me');
+  if (res.status === 401) {
+    location.href = '/login.html';
+    return false;
+  }
+  const data = await res.json();
+  homeDir = data.home;
+  document.getElementById('username-display').textContent = data.username;
+  return true;
+}
+
+document.getElementById('logout-btn').addEventListener('click', async () => {
+  await fetch('/api/logout', { method: 'POST' });
+  location.href = '/login.html';
+});
 
 // --- Step navigation ---
 function showStep(n) {
@@ -15,7 +34,6 @@ document.getElementById('start-btn').addEventListener('click', async () => {
   const dir = document.getElementById('dir-input').value.trim();
   const perceptual = document.getElementById('perceptual-toggle').checked;
 
-  // Open SSE connection BEFORE starting scan to avoid race condition
   showStep(2);
   const es = startSSE();
 
@@ -25,6 +43,7 @@ document.getElementById('start-btn').addEventListener('click', async () => {
     body: JSON.stringify({ dir: dir || undefined, perceptual })
   });
 
+  if (res.status === 401) { location.href = '/login.html'; return; }
   if (res.status === 409) {
     es.close();
     showStep(1);
@@ -91,6 +110,11 @@ function startSSE() {
 }
 
 // --- Step 3: Render results ---
+function displayPath(p) {
+  if (homeDir && p.startsWith(homeDir)) return '~' + p.slice(homeDir.length);
+  return p;
+}
+
 function getDir(p) {
   return p.substring(0, p.lastIndexOf('/'));
 }
@@ -104,7 +128,6 @@ function getFolders(groups) {
 function totalSize(groups) {
   let bytes = 0;
   groups.forEach(g => {
-    // sum all but the first (keep) file
     g.files.slice(1).forEach(f => { bytes += f.size; });
   });
   return bytes;
@@ -131,18 +154,16 @@ function getFilteredGroups() {
 }
 
 function renderResults() {
-  // Summary
   const recoverable = totalSize(allGroups);
   document.getElementById('summary-text').textContent =
     `${allGroups.length} nhóm trùng · ${formatSize(recoverable)} có thể xóa`;
 
-  // Folder filter
   const folderSelect = document.getElementById('folder-filter');
   folderSelect.innerHTML = '<option value="">Tất cả thư mục</option>';
   getFolders(allGroups).forEach(f => {
     const opt = document.createElement('option');
     opt.value = f;
-    opt.textContent = f;
+    opt.textContent = displayPath(f);
     folderSelect.appendChild(opt);
   });
 
@@ -160,7 +181,7 @@ function renderTable() {
       tr.className = gi % 2 === 0 ? 'group-even' : 'group-odd';
       if (selectedPaths.has(file.path)) tr.classList.add('marked-delete');
 
-      const isKeep = fi === 0; // newest mtime = keep
+      const isKeep = fi === 0;
 
       const td0 = document.createElement('td');
       if (!isKeep) {
@@ -181,7 +202,7 @@ function renderTable() {
       }
 
       const td1 = document.createElement('td');
-      td1.textContent = file.path;
+      td1.textContent = displayPath(file.path);
 
       const td2 = document.createElement('td');
       td2.textContent = '#' + group.id;
@@ -252,9 +273,9 @@ document.getElementById('delete-btn').addEventListener('click', async () => {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ paths })
   });
+  if (res.status === 401) { location.href = '/login.html'; return; }
   const result = await res.json();
 
-  // Remove successfully deleted from allGroups
   const deletedSet = new Set(result.success);
   allGroups = allGroups.map(g => ({
     ...g,
@@ -266,7 +287,6 @@ document.getElementById('delete-btn').addEventListener('click', async () => {
   document.getElementById('select-folder-all').checked = false;
   renderResults();
 
-  // Show result message
   const resultDiv = document.getElementById('delete-result');
   resultDiv.hidden = false;
   resultDiv.className = result.failed.length > 0 ? 'has-errors' : '';
@@ -275,4 +295,4 @@ document.getElementById('delete-btn').addEventListener('click', async () => {
 });
 
 // Init
-showStep(1);
+initAuth().then(ok => { if (ok) showStep(1); });

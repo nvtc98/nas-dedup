@@ -1,116 +1,213 @@
-const express = require('express');
-const path = require('path');
-const { Worker } = require('worker_threads');
-const os = require('os');
-const fs = require('fs');
+const express = require("express");
+const path = require("path");
+const { Worker } = require("worker_threads");
+const os = require("os");
+const fs = require("fs");
+const http = require("http");
+const crypto = require("crypto");
+const session = require("express-session");
 
 const app = express();
 app.use(express.json());
-app.use(express.static(path.join(__dirname, 'public')));
+app.use(
+  session({
+    secret:
+      process.env.SESSION_SECRET || crypto.randomBytes(32).toString("hex"),
+    resave: false,
+    saveUninitialized: false,
+    cookie: { maxAge: 8 * 60 * 60 * 1000 },
+  }),
+);
+app.use(express.static(path.join(__dirname, "public")));
 
-const PORT = process.env.PORT || 8080;
-const username = os.userInfo().username;
-const nasHome = `/volume1/homes/${username}`;
-const homeDir = fs.existsSync(nasHome) ? nasHome : os.homedir();
+const PORT = process.env.PORT || 5003;
 
-let activeWorker = null;
-let lastResults = null;
-const sseClients = [];
+// Per-session scan state
+const sessionStates = new Map();
 
-function broadcast(data) {
+function getState(sid) {
+  if (!sessionStates.has(sid)) {
+    sessionStates.set(sid, { worker: null, results: null, clients: [] });
+  }
+  return sessionStates.get(sid);
+}
+
+function broadcast(sid, data) {
+  const state = sessionStates.get(sid);
+  if (!state) return;
   const msg = `data: ${JSON.stringify(data)}\n\n`;
-  for (let i = sseClients.length - 1; i >= 0; i--) {
+  for (let i = state.clients.length - 1; i >= 0; i--) {
     try {
-      sseClients[i].write(msg);
+      state.clients[i].write(msg);
     } catch {
-      sseClients.splice(i, 1);
+      state.clients.splice(i, 1);
     }
   }
 }
 
-app.get('/api/progress', (req, res) => {
-  res.setHeader('Content-Type', 'text/event-stream');
-  res.setHeader('Cache-Control', 'no-cache');
-  res.setHeader('Connection', 'keep-alive');
+function requireAuth(req, res, next) {
+  if (!req.session.username)
+    return res.status(401).json({ error: "Unauthorized" });
+  next();
+}
+
+app.post("/api/login", (req, res) => {
+  const { username, password } = req.body;
+  if (!username || !password)
+    return res.status(400).json({ error: "Thiếu thông tin đăng nhập" });
+
+  // Xác thực qua WebDAV (port 5006) bằng PROPFIND + Basic Auth
+  const auth = Buffer.from(`${username}:${password}`).toString("base64");
+
+  const webdavReq = http.request(
+    {
+      hostname: "localhost",
+      port: 5006,
+      path: "/",
+      method: "PROPFIND",
+      headers: {
+        Authorization: `Basic ${auth}`,
+        Depth: "0",
+        "Content-Type": "application/xml",
+      },
+    },
+    (webdavRes) => {
+      // WebDAV trả 207 Multi-Status = xác thực thành công
+      // 401 = sai credentials, 403 = không có quyền
+      webdavRes.resume(); // drain response body
+
+      if (webdavRes.statusCode === 207 || webdavRes.statusCode === 200) {
+        const homeDir = `/volume1/homes/${username}`;
+        req.session.username = username;
+        req.session.homeDir = homeDir;
+        res.json({ ok: true, username });
+      } else if (webdavRes.statusCode === 401) {
+        res.status(401).json({ error: "Sai tên đăng nhập hoặc mật khẩu" });
+      } else {
+        res
+          .status(401)
+          .json({ error: `WebDAV trả về status ${webdavRes.statusCode}` });
+      }
+    },
+  );
+
+  webdavReq.on("error", () =>
+    res.status(500).json({ error: "Không kết nối được WebDAV (port 5006)" }),
+  );
+  webdavReq.end();
+});
+
+app.post("/api/logout", (req, res) => {
+  req.session.destroy();
+  res.json({ ok: true });
+});
+
+app.get("/api/me", (req, res) => {
+  if (!req.session.username)
+    return res.status(401).json({ error: "Unauthorized" });
+  res.json({ username: req.session.username, home: req.session.homeDir });
+});
+
+app.get("/api/home", requireAuth, (req, res) => {
+  res.json({ home: req.session.homeDir });
+});
+
+app.get("/api/progress", requireAuth, (req, res) => {
+  res.setHeader("Content-Type", "text/event-stream");
+  res.setHeader("Cache-Control", "no-cache");
+  res.setHeader("Connection", "keep-alive");
   res.flushHeaders();
-  sseClients.push(res);
-  req.on('close', () => {
-    const idx = sseClients.indexOf(res);
-    if (idx !== -1) sseClients.splice(idx, 1);
+  const state = getState(req.session.id);
+  state.clients.push(res);
+  req.on("close", () => {
+    const idx = state.clients.indexOf(res);
+    if (idx !== -1) state.clients.splice(idx, 1);
   });
 });
 
-app.post('/api/scan', (req, res) => {
-  if (activeWorker) {
-    return res.status(409).json({ error: 'Scan already in progress' });
-  }
+app.post("/api/scan", requireAuth, (req, res) => {
+  const sid = req.session.id;
+  const homeDir = req.session.homeDir;
+  const state = getState(sid);
+
+  if (state.worker)
+    return res.status(409).json({ error: "Scan đang chạy, vui lòng chờ" });
 
   const { dir: rawDir, perceptual = false } = req.body;
-  const dir = (rawDir === undefined || rawDir === null) ? `${homeDir}/Photos` : rawDir;
-  if (typeof dir !== 'string') return res.status(400).json({ error: 'dir must be a string' });
+  const dir =
+    rawDir === undefined || rawDir === null ? `${homeDir}/Photos` : rawDir;
+  if (typeof dir !== "string")
+    return res.status(400).json({ error: "dir phải là string" });
+
   const resolved = path.resolve(dir);
   if (resolved !== homeDir && !resolved.startsWith(homeDir + path.sep)) {
-    return res.status(400).json({ error: 'Directory outside user home' });
+    return res.status(400).json({ error: "Thư mục nằm ngoài home của bạn" });
   }
 
-  lastResults = null;
-  activeWorker = new Worker(path.join(__dirname, 'scanner.worker.js'), {
-    workerData: { dir: resolved, perceptual }
+  state.results = null;
+  state.worker = new Worker(path.join(__dirname, "scanner.worker.js"), {
+    workerData: { dir: resolved, perceptual },
   });
 
-  activeWorker.on('message', (msg) => {
-    if (msg.type === 'progress') {
-      broadcast({ type: 'progress', count: msg.count, total: msg.total });
-    } else if (msg.type === 'done') {
-      lastResults = msg.groups;
-      broadcast({ type: 'done' });
-      activeWorker = null;
-    } else if (msg.type === 'error') {
-      broadcast({ type: 'error', message: msg.message });
-      activeWorker = null;
+  state.worker.on("message", (msg) => {
+    if (msg.type === "progress") {
+      broadcast(sid, { type: "progress", count: msg.count, total: msg.total });
+    } else if (msg.type === "done") {
+      state.results = msg.groups;
+      broadcast(sid, { type: "done" });
+      state.worker = null;
+    } else if (msg.type === "error") {
+      broadcast(sid, { type: "error", message: msg.message });
+      state.worker = null;
     }
   });
 
-  activeWorker.on('error', (err) => {
-    broadcast({ type: 'error', message: err.message });
-    activeWorker = null;
+  state.worker.on("error", (err) => {
+    broadcast(sid, { type: "error", message: err.message });
+    state.worker = null;
   });
 
-  activeWorker.on('exit', (code) => {
-    if (activeWorker !== null) {
-      broadcast({ type: 'error', message: `Worker exited unexpectedly (code ${code})` });
-      activeWorker = null;
+  state.worker.on("exit", (code) => {
+    if (state.worker !== null) {
+      broadcast(sid, {
+        type: "error",
+        message: `Worker thoát bất ngờ (code ${code})`,
+      });
+      state.worker = null;
     }
   });
 
   res.json({ ok: true });
 });
 
-app.get('/api/results', (req, res) => {
-  if (!lastResults) return res.status(404).json({ error: 'No results yet' });
-  res.json(lastResults);
+app.get("/api/results", requireAuth, (req, res) => {
+  const state = getState(req.session.id);
+  if (!state.results) return res.status(404).json({ error: "Chưa có kết quả" });
+  res.json(state.results);
 });
 
-app.post('/api/delete', (req, res) => {
+app.post("/api/delete", requireAuth, (req, res) => {
+  const homeDir = req.session.homeDir;
   const { paths } = req.body;
-  if (!Array.isArray(paths)) return res.status(400).json({ error: 'paths must be array' });
+  if (!Array.isArray(paths))
+    return res.status(400).json({ error: "paths phải là array" });
 
   const success = [];
   const failed = [];
 
   for (const filePath of paths) {
-    if (typeof filePath !== 'string') {
-      failed.push({ path: filePath, reason: 'Path must be a string' });
+    if (typeof filePath !== "string") {
+      failed.push({ path: filePath, reason: "Path phải là string" });
       continue;
     }
     const resolved = path.resolve(filePath);
     if (!resolved.startsWith(homeDir + path.sep)) {
-      failed.push({ path: filePath, reason: 'Path not allowed' });
+      failed.push({ path: filePath, reason: "Path không được phép" });
       continue;
     }
 
     const relative = path.relative(homeDir, resolved);
-    const recyclePath = path.join(homeDir, '#recycle', relative);
+    const recyclePath = path.join(homeDir, "#recycle", relative);
     const recycleDir = path.dirname(recyclePath);
 
     try {
@@ -125,6 +222,6 @@ app.post('/api/delete', (req, res) => {
   res.json({ success, failed });
 });
 
-app.listen(PORT, '0.0.0.0', () => {
+app.listen(PORT, "0.0.0.0", () => {
   console.log(`NAS Dedup running at http://0.0.0.0:${PORT}`);
 });

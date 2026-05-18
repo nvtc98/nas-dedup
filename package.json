@@ -2,10 +2,13 @@
   "name": "nas-dedup",
   "version": "1.0.0",
   "scripts": {
-    "start": "node server.js"
+    "start": "node server.js",
+    "kill": "pkill -f 'node server.js'",
+    "copy": "scp -O -P 5002 server.js package.json aresvn@aresvnas.synology.me:/volume1/Shared/nas-dedup/ && scp -O -P 5002 public/app.js public/index.html public/login.html public/style.css aresvn@aresvnas.synology.me:/volume1/Shared/nas-dedup/public/"
   },
   "license": "ISC",
   "dependencies": {
-    "express": "5.2.1"
+    "express": "5.2.1",
+    "express-session": "^1.19.0"
   }
 }
