@@ -26,7 +26,7 @@
     <!-- Step 1: Configure -->
     <section id="step-1">
       <label for="dir-input">Thư mục cần scan</label>
-      <input type="text" id="dir-input" placeholder="/volume1/homes/user/Photos">
+      <input type="text" id="dir-input" placeholder="~/Photos">
       <label style="color: #aaa;">
         <input type="checkbox" id="perceptual-toggle" disabled>
         Tìm ảnh trông giống nhau (perceptual hash) — chưa hỗ trợ
@@ -70,6 +70,17 @@
       <div id="delete-result" hidden></div>
     </section>
   </div>
+
+  <!-- Image preview modal -->
+  <div id="preview-modal" hidden>
+    <div id="preview-backdrop"></div>
+    <div id="preview-box">
+      <button id="preview-close">✕</button>
+      <img id="preview-img" src="" alt="">
+      <p id="preview-name"></p>
+    </div>
+  </div>
+
   <script src="app.js"></script>
 </body>
 </html>

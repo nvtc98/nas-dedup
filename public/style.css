@@ -42,3 +42,14 @@ tr.marked-delete td:nth-child(2) { color: #dc2626; }
 
 #delete-result { padding: 12px; border-radius: 6px; background: #f0fdf4; border: 1px solid #bbf7d0; font-size: 0.85rem; }
 #delete-result.has-errors { background: #fff5f5; border-color: #fecaca; }
+
+/* Image preview modal */
+#preview-modal { position: fixed; inset: 0; z-index: 100; display: flex; align-items: center; justify-content: center; }
+#preview-backdrop { position: absolute; inset: 0; background: rgba(0,0,0,0.7); }
+#preview-box { position: relative; background: #111; border-radius: 8px; padding: 16px; max-width: 90vw; max-height: 90vh; display: flex; flex-direction: column; align-items: center; gap: 10px; }
+#preview-img { max-width: 80vw; max-height: 75vh; object-fit: contain; border-radius: 4px; }
+#preview-name { color: #ccc; font-size: 0.8rem; word-break: break-all; text-align: center; }
+#preview-close { position: absolute; top: 8px; right: 8px; background: rgba(255,255,255,0.15); color: white; border: none; border-radius: 50%; width: 28px; height: 28px; font-size: 0.9rem; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+#preview-close:hover { background: rgba(255,255,255,0.3); }
+.preview-link { cursor: pointer; text-decoration: underline dotted; color: inherit; }
+.preview-link:hover { color: #4f46e5; }

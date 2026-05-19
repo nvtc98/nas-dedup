@@ -10,7 +10,10 @@
     #login-box { background: white; border-radius: 8px; padding: 32px; width: 100%; max-width: 360px; }
     h2 { font-size: 1.2rem; margin-bottom: 20px; }
     #error-msg { color: #dc2626; font-size: 0.85rem; margin-bottom: 12px; display: none; }
-    input[type="password"] { width: 100%; padding: 8px 12px; border: 1px solid #ddd; border-radius: 6px; font-size: 0.95rem; margin-bottom: 12px; }
+    .password-wrap { position: relative; margin-bottom: 12px; }
+    .password-wrap input { width: 100%; padding: 8px 40px 8px 12px; border: 1px solid #ddd; border-radius: 6px; font-size: 0.95rem; margin-bottom: 0; }
+    .password-wrap button { position: absolute; right: 8px; top: 50%; transform: translateY(-50%); width: auto; margin: 0; padding: 0; background: none; color: #888; font-size: 1.1rem; line-height: 1; }
+    .password-wrap button:hover { background: none; color: #333; }
     button { width: 100%; margin-top: 4px; padding: 10px; }
   </style>
 </head>
@@ -21,7 +24,10 @@
     <label for="username">Tên đăng nhập DSM</label>
     <input type="text" id="username" autocomplete="username">
     <label for="password">Mật khẩu</label>
-    <input type="password" id="password" autocomplete="current-password">
+    <div class="password-wrap">
+      <input type="password" id="password" autocomplete="current-password">
+      <button type="button" id="toggle-pw" tabindex="-1">👁</button>
+    </div>
     <button id="login-btn">Đăng nhập</button>
   </div>
   <script>
@@ -58,6 +64,10 @@
       }
     }
 
+    document.getElementById('toggle-pw').addEventListener('click', () => {
+      const pw = document.getElementById('password');
+      pw.type = pw.type === 'password' ? 'text' : 'password';
+    });
     document.getElementById('login-btn').addEventListener('click', login);
     document.getElementById('password').addEventListener('keydown', e => {
       if (e.key === 'Enter') login();

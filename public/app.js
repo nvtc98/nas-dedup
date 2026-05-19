@@ -109,6 +109,33 @@ function startSSE() {
   return es;
 }
 
+// --- Image preview ---
+const IMAGE_EXTS = new Set(['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp', '.heic']);
+
+function isImage(filePath) {
+  const ext = filePath.slice(filePath.lastIndexOf('.')).toLowerCase();
+  return IMAGE_EXTS.has(ext);
+}
+
+function openPreview(filePath) {
+  const modal = document.getElementById('preview-modal');
+  const img = document.getElementById('preview-img');
+  const name = document.getElementById('preview-name');
+  img.src = '/api/preview?path=' + encodeURIComponent(filePath);
+  name.textContent = displayPath(filePath);
+  modal.hidden = false;
+}
+
+function closePreview() {
+  const modal = document.getElementById('preview-modal');
+  modal.hidden = true;
+  document.getElementById('preview-img').src = '';
+}
+
+document.getElementById('preview-close').addEventListener('click', closePreview);
+document.getElementById('preview-backdrop').addEventListener('click', closePreview);
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closePreview(); });
+
 // --- Step 3: Render results ---
 function displayPath(p) {
   if (homeDir && p.startsWith(homeDir)) return '~' + p.slice(homeDir.length);
@@ -202,7 +229,15 @@ function renderTable() {
       }
 
       const td1 = document.createElement('td');
-      td1.textContent = displayPath(file.path);
+      if (isImage(file.path)) {
+        const link = document.createElement('span');
+        link.className = 'preview-link';
+        link.textContent = displayPath(file.path);
+        link.addEventListener('click', () => openPreview(file.path));
+        td1.appendChild(link);
+      } else {
+        td1.textContent = displayPath(file.path);
+      }
 
       const td2 = document.createElement('td');
       td2.textContent = '#' + group.id;

@@ -184,6 +184,26 @@ app.get("/api/results", requireAuth, (req, res) => {
   res.json(state.results);
 });
 
+app.get("/api/preview", requireAuth, (req, res) => {
+  const filePath = req.query.path;
+  if (!filePath || typeof filePath !== "string")
+    return res.status(400).json({ error: "Thiếu path" });
+
+  const resolved = path.resolve(filePath);
+  const ext = path.extname(resolved).toLowerCase();
+  const mime = { ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".png": "image/png", ".gif": "image/gif", ".webp": "image/webp", ".bmp": "image/bmp", ".heic": "image/heic" };
+  if (!mime[ext]) return res.status(400).json({ error: "Không phải file ảnh" });
+
+  try {
+    const stat = fs.statSync(resolved);
+    res.setHeader("Content-Type", mime[ext]);
+    res.setHeader("Content-Length", stat.size);
+    fs.createReadStream(resolved).pipe(res);
+  } catch {
+    res.status(404).json({ error: "Không tìm thấy file" });
+  }
+});
+
 app.post("/api/delete", requireAuth, (req, res) => {
   const homeDir = req.session.homeDir;
   const { paths } = req.body;
