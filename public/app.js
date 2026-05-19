@@ -325,5 +325,11 @@ document.getElementById('delete-btn').addEventListener('click', async () => {
     (result.failed.length > 0 ? ` Thất bại: ${result.failed.map(f => f.path).join(', ')}` : '');
 });
 
+document.getElementById('rescan-btn').addEventListener('click', () => {
+  allGroups = [];
+  selectedPaths.clear();
+  showStep(1);
+});
+
 // Init
 initAuth().then(ok => { if (ok) showStep(1); });
