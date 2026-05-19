@@ -44,6 +44,7 @@ tr.marked-delete td:nth-child(2) { color: #dc2626; }
 #delete-result.has-errors { background: #fff5f5; border-color: #fecaca; }
 
 /* Image preview modal */
+[hidden] { display: none !important; }
 #preview-modal { position: fixed; inset: 0; z-index: 100; display: flex; align-items: center; justify-content: center; }
 #preview-backdrop { position: absolute; inset: 0; background: rgba(0,0,0,0.7); }
 #preview-box { position: relative; background: #111; border-radius: 8px; padding: 16px; max-width: 90vw; max-height: 90vh; display: flex; flex-direction: column; align-items: center; gap: 10px; }
