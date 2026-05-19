@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "scripts": {
     "start": "node server.js",
-    "startbg": "nohup node server.js > server.log 2>&1 & echo $! > server.pid",
+    "startbg": "nohup /usr/local/bin/node server.js > server.log 2>&1 & echo $! > server.pid",
     "restart": "npm run kill && npm run startbg",
     "kill": "kill $(cat server.pid) 2>/dev/null; rm -f server.pid",
     "copy": "scp -O -P 5002 server.js scanner.worker.js package.json aresvn@aresvnas.synology.me:/volume1/Shared/nas-dedup/ && scp -O -P 5002 public/app.js public/index.html public/login.html public/style.css aresvn@aresvnas.synology.me:/volume1/Shared/nas-dedup/public/",
