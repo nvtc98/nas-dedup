@@ -107,6 +107,16 @@ function showStep(n) {
   });
 }
 
+// Click step-1 label when on step 3 to restart
+document.getElementById('step-label-1').addEventListener('click', () => {
+  const step3 = document.getElementById('step-3');
+  if (!step3.hidden) {
+    allGroups = [];
+    selectedPaths.clear();
+    showStep(1);
+  }
+});
+
 // --- Step 1: Configure ---
 document.getElementById('start-btn').addEventListener('click', async () => {
   const dir = document.getElementById('dir-input').value.trim();
@@ -181,12 +191,9 @@ function startSSE() {
       isPaused = false;
       document.getElementById('pause-btn').innerHTML = '<i class="ph ph-pause"></i> Tạm dừng';
       document.getElementById('pause-btn').style.background = '#f59e0b';
-      text.textContent = 'Đã hủy scan.';
-      const backBtn = document.createElement('button');
-      backBtn.innerHTML = '<i class="ph ph-arrow-left"></i> Quay lại';
-      backBtn.style.marginTop = '12px';
-      backBtn.onclick = () => showStep(1);
-      document.getElementById('step-2').appendChild(backBtn);
+      allGroups = [];
+      selectedPaths.clear();
+      showStep(1);
     } else if (msg.type === 'error') {
       es.close();
       text.textContent = 'Lỗi: ' + msg.message;
