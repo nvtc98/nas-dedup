@@ -307,21 +307,16 @@ function renderTable() {
       const isKeep = fi === 0;
 
       const td0 = document.createElement('td');
-      if (!isKeep) {
-        const cb = document.createElement('input');
-        cb.type = 'checkbox';
-        cb.checked = selectedPaths.has(file.path);
-        cb.addEventListener('change', () => {
-          if (cb.checked) selectedPaths.add(file.path);
-          else selectedPaths.delete(file.path);
-          tr.classList.toggle('marked-delete', cb.checked);
-          updateDeleteBtn();
-        });
-        td0.appendChild(cb);
-      } else {
-        td0.innerHTML = '<i class="ph ph-check" style="color:#16a34a"></i>';
-        td0.title = 'Giữ lại (mới nhất)';
-      }
+      const cb = document.createElement('input');
+      cb.type = 'checkbox';
+      cb.checked = selectedPaths.has(file.path);
+      cb.addEventListener('change', () => {
+        if (cb.checked) selectedPaths.add(file.path);
+        else selectedPaths.delete(file.path);
+        tr.classList.toggle('marked-delete', cb.checked);
+        updateDeleteBtn();
+      });
+      td0.appendChild(cb);
 
       const td1 = document.createElement('td');
       if (isImage(file.path)) {
@@ -364,7 +359,7 @@ document.getElementById('select-folder-all').addEventListener('change', (e) => {
   const folder = document.getElementById('folder-filter').value;
   const groups = getFilteredGroups();
   groups.forEach(g => {
-    g.files.slice(1).forEach(f => {
+    g.files.forEach(f => {
       const dir = getDir(f.path);
       if (!folder || dir === folder) {
         if (e.target.checked) selectedPaths.add(f.path);
@@ -379,7 +374,7 @@ document.getElementById('select-folder-all').addEventListener('change', (e) => {
 document.getElementById('select-all').addEventListener('change', (e) => {
   const groups = getFilteredGroups();
   groups.forEach(g => {
-    g.files.slice(1).forEach(f => {
+    g.files.forEach(f => {
       if (e.target.checked) selectedPaths.add(f.path);
       else selectedPaths.delete(f.path);
     });
@@ -393,35 +388,85 @@ document.getElementById('folder-filter').addEventListener('change', () => {
   renderTable();
 });
 
+// Custom confirm dialog
+function showConfirm({ title, body, warning, onOk }) {
+  const modal = document.getElementById('confirm-modal');
+  document.getElementById('confirm-title').textContent = title;
+  document.getElementById('confirm-body').textContent = body;
+  const warnEl = document.getElementById('confirm-warning');
+  if (warning) {
+    warnEl.textContent = warning;
+    warnEl.hidden = false;
+  } else {
+    warnEl.hidden = true;
+  }
+  modal.hidden = false;
+
+  const okBtn = document.getElementById('confirm-ok-btn');
+  const cancelBtn = document.getElementById('confirm-cancel-btn');
+  const backdrop = document.getElementById('confirm-backdrop');
+
+  function close() {
+    modal.hidden = true;
+    okBtn.replaceWith(okBtn.cloneNode(true));
+    cancelBtn.replaceWith(cancelBtn.cloneNode(true));
+    backdrop.replaceWith(backdrop.cloneNode(true));
+    // re-bind cancel/backdrop after clone
+    document.getElementById('confirm-cancel-btn').addEventListener('click', () => document.getElementById('confirm-modal').hidden = true);
+    document.getElementById('confirm-backdrop').addEventListener('click', () => document.getElementById('confirm-modal').hidden = true);
+  }
+
+  document.getElementById('confirm-ok-btn').addEventListener('click', () => { close(); onOk(); });
+}
+
+document.getElementById('confirm-cancel-btn').addEventListener('click', () => { document.getElementById('confirm-modal').hidden = true; });
+document.getElementById('confirm-backdrop').addEventListener('click', () => { document.getElementById('confirm-modal').hidden = true; });
+
 // Delete
-document.getElementById('delete-btn').addEventListener('click', async () => {
-  if (!confirm(`Xóa ${selectedPaths.size} file vào Recycle Bin?`)) return;
-
+document.getElementById('delete-btn').addEventListener('click', () => {
   const paths = [...selectedPaths];
-  const res = await fetch('/api/delete', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ paths })
+
+  // Detect groups that would be fully deleted
+  const fullyDeletedGroups = allGroups.filter(g =>
+    g.files.every(f => selectedPaths.has(f.path))
+  );
+
+  const warning = fullyDeletedGroups.length > 0
+    ? `⚠ ${fullyDeletedGroups.length} nhóm sẽ bị xóa toàn bộ — không còn bản nào được giữ lại (nhóm: ${fullyDeletedGroups.map(g => '#' + g.id).join(', ')})`
+    : null;
+
+  showConfirm({
+    title: 'Xác nhận xóa',
+    body: `Chuyển ${paths.length} file vào Recycle Bin?`,
+    warning,
+    onOk: async () => {
+      const res = await fetch('/api/delete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ paths })
+      });
+      if (res.status === 401) { location.href = '/login.html'; return; }
+      const result = await res.json();
+
+      const deletedSet = new Set(result.success);
+      allGroups = allGroups.map(g => ({
+        ...g,
+        files: g.files.filter(f => !deletedSet.has(f.path))
+      })).filter(g => g.files.length > 0);
+
+      selectedPaths.clear();
+      document.getElementById('select-all').checked = false;
+      document.getElementById('select-folder-all').checked = false;
+      renderResults();
+
+      const resultDiv = document.getElementById('delete-result');
+      resultDiv.hidden = false;
+      resultDiv.className = result.failed.length > 0 ? 'has-errors' : '';
+      resultDiv.textContent = `Đã xóa ${result.success.length} file.` +
+        (result.failed.length > 0 ? ` Thất bại: ${result.failed.map(f => f.path).join(', ')}` : '');
+    }
   });
-  if (res.status === 401) { location.href = '/login.html'; return; }
-  const result = await res.json();
-
-  const deletedSet = new Set(result.success);
-  allGroups = allGroups.map(g => ({
-    ...g,
-    files: g.files.filter(f => !deletedSet.has(f.path))
-  })).filter(g => g.files.length > 1);
-
-  selectedPaths.clear();
-  document.getElementById('select-all').checked = false;
-  document.getElementById('select-folder-all').checked = false;
-  renderResults();
-
-  const resultDiv = document.getElementById('delete-result');
-  resultDiv.hidden = false;
-  resultDiv.className = result.failed.length > 0 ? 'has-errors' : '';
-  resultDiv.textContent = `Đã xóa ${result.success.length} file.` +
-    (result.failed.length > 0 ? ` Thất bại: ${result.failed.map(f => f.path).join(', ')}` : '');
+});
 });
 
 document.getElementById('rescan-btn').addEventListener('click', () => {

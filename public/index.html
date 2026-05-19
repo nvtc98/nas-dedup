@@ -98,6 +98,20 @@
     </div>
   </div>
 
+  <!-- Delete confirm dialog -->
+  <div id="confirm-modal" hidden>
+    <div id="confirm-backdrop"></div>
+    <div id="confirm-box">
+      <h3 id="confirm-title"></h3>
+      <p id="confirm-body"></p>
+      <p id="confirm-warning" hidden></p>
+      <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px">
+        <button id="confirm-cancel-btn" style="background:#6b7280"><i class="ph ph-x"></i> Hủy</button>
+        <button id="confirm-ok-btn" style="background:#dc2626"><i class="ph ph-trash"></i> Xác nhận xóa</button>
+      </div>
+    </div>
+  </div>
+
   <script src="app.js"></script>
 </body>
 </html>
