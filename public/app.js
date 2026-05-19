@@ -20,6 +20,61 @@ document.getElementById('logout-btn').addEventListener('click', async () => {
   location.href = '/login.html';
 });
 
+// --- Folder browser ---
+let browserCurrentPath = '';
+
+async function browserLoad(dirPath) {
+  const res = await fetch('/api/ls?path=' + encodeURIComponent(dirPath));
+  if (res.status === 401) { location.href = '/login.html'; return; }
+  const data = await res.json();
+  if (data.error) return;
+
+  browserCurrentPath = data.path;
+  document.getElementById('browser-path').textContent = displayPath(data.path);
+
+  const list = document.getElementById('browser-list');
+  list.innerHTML = '';
+
+  // Up button
+  const parentPath = data.path.split('/').slice(0, -1).join('/') || '/';
+  if (data.path !== '/') {
+    const up = document.createElement('div');
+    up.className = 'browser-item';
+    up.innerHTML = '<i class="ph ph-arrow-up"></i> ..';
+    up.addEventListener('click', () => browserLoad(parentPath));
+    list.appendChild(up);
+  }
+
+  data.dirs.forEach(d => {
+    const item = document.createElement('div');
+    item.className = 'browser-item';
+    item.innerHTML = `<i class="ph ph-folder"></i> ${d.name}`;
+    item.addEventListener('click', () => browserLoad(d.path));
+    list.appendChild(item);
+  });
+
+  if (data.dirs.length === 0 && data.path === '/') {
+    list.innerHTML = '<div style="padding:10px;color:#888;font-size:0.85rem">Không có thư mục con</div>';
+  }
+}
+
+document.getElementById('browse-btn').addEventListener('click', async () => {
+  const browser = document.getElementById('folder-browser');
+  if (!browser.hidden) { browser.hidden = true; return; }
+  browser.hidden = false;
+  const current = document.getElementById('dir-input').value.trim() || '~';
+  await browserLoad(current);
+});
+
+document.getElementById('browser-select-btn').addEventListener('click', () => {
+  document.getElementById('dir-input').value = displayPath(browserCurrentPath);
+  document.getElementById('folder-browser').hidden = true;
+});
+
+document.getElementById('browser-cancel-btn').addEventListener('click', () => {
+  document.getElementById('folder-browser').hidden = true;
+});
+
 // --- Step navigation ---
 function showStep(n) {
   [1, 2, 3].forEach(i => {

@@ -54,3 +54,8 @@ tr.marked-delete td:nth-child(2) { color: #dc2626; }
 #preview-close:hover { background: rgba(255,255,255,0.3); }
 .preview-link { cursor: pointer; text-decoration: underline dotted; color: inherit; }
 .preview-link:hover { color: #4f46e5; }
+
+/* Folder browser */
+.browser-item { padding: 8px 12px; cursor: pointer; font-size: 0.88rem; display: flex; align-items: center; gap: 8px; border-bottom: 1px solid #f0f0f0; }
+.browser-item:last-child { border-bottom: none; }
+.browser-item:hover { background: #f0f4ff; }

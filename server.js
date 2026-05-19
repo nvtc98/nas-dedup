@@ -109,6 +109,22 @@ app.get("/api/me", (req, res) => {
   res.json({ username: req.session.username, home: req.session.homeDir });
 });
 
+app.get("/api/ls", requireAuth, (req, res) => {
+  const homeDir = req.session.homeDir;
+  const rawPath = req.query.path || homeDir;
+  const resolved = path.resolve(rawPath.replace(/^~/, homeDir));
+  try {
+    const entries = fs.readdirSync(resolved, { withFileTypes: true });
+    const dirs = entries
+      .filter(e => e.isDirectory() && !e.name.startsWith('@') && e.name !== '#recycle')
+      .map(e => ({ name: e.name, path: path.join(resolved, e.name) }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+    res.json({ path: resolved, dirs });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
 app.get("/api/home", requireAuth, (req, res) => {
   res.json({ home: req.session.homeDir });
 });
@@ -135,8 +151,8 @@ app.post("/api/scan", requireAuth, (req, res) => {
     return res.status(409).json({ error: "Scan đang chạy, vui lòng chờ" });
 
   const { dir: rawDir, perceptual = false } = req.body;
-  const dir =
-    rawDir === undefined || rawDir === null ? `${homeDir}/Photos` : rawDir;
+  const dirInput = rawDir === undefined || rawDir === null ? `${homeDir}/Photos` : rawDir;
+  const dir = dirInput.replace(/^~/, homeDir);
   if (typeof dir !== "string")
     return res.status(400).json({ error: "dir phải là string" });
 
