@@ -3,6 +3,8 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 
+const SKIP_DIRS = new Set(['#recycle', '@eaDir', '@Recently-Snapshot', '@sharebin', '.DS_Store', '@tmp']);
+
 async function walk(dir, files = []) {
   let entries;
   try {
@@ -11,8 +13,8 @@ async function walk(dir, files = []) {
     return files;
   }
   for (const entry of entries) {
+    if (SKIP_DIRS.has(entry.name) || entry.name.startsWith('@')) continue;
     const fullPath = path.join(dir, entry.name);
-    if (entry.name === '#recycle') continue;
     if (entry.isDirectory()) {
       await walk(fullPath, files);
     } else if (entry.isFile()) {
