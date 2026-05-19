@@ -174,10 +174,7 @@ function formatDate(ms) {
 function getFilteredGroups() {
   const folder = document.getElementById('folder-filter').value;
   if (!folder) return allGroups;
-  return allGroups.map(g => ({
-    ...g,
-    files: g.files.filter(f => getDir(f.path) === folder)
-  })).filter(g => g.files.length > 1);
+  return allGroups.filter(g => g.files.some(f => getDir(f.path) === folder));
 }
 
 function renderResults() {
