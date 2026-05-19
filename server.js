@@ -3,7 +3,7 @@ const path = require("path");
 const { Worker } = require("worker_threads");
 const os = require("os");
 const fs = require("fs");
-const http = require("http");
+const https = require("https");
 const crypto = require("crypto");
 const session = require("express-session");
 
@@ -59,12 +59,13 @@ app.post("/api/login", (req, res) => {
   // Xác thực qua WebDAV (port 5006) bằng PROPFIND + Basic Auth
   const auth = Buffer.from(`${username}:${password}`).toString("base64");
 
-  const webdavReq = http.request(
+  const webdavReq = https.request(
     {
       hostname: "localhost",
-      port: 5005,
+      port: 5006,
       path: "/home/",
       method: "PROPFIND",
+      rejectUnauthorized: false,
       headers: {
         Authorization: `Basic ${auth}`,
         Depth: "0",
