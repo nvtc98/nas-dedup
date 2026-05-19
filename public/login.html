@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Đăng nhập — NAS Dedup</title>
   <link rel="stylesheet" href="style.css">
+  <script src="https://unpkg.com/@phosphor-icons/web@2.1.1"></script>
   <style>
     body { display: flex; align-items: center; justify-content: center; min-height: 100vh; }
     #login-box { background: white; border-radius: 8px; padding: 32px; width: 100%; max-width: 360px; }
@@ -26,7 +27,7 @@
     <label for="password">Mật khẩu</label>
     <div class="password-wrap">
       <input type="password" id="password" autocomplete="current-password">
-      <button type="button" id="toggle-pw" tabindex="-1">👁</button>
+      <button type="button" id="toggle-pw" tabindex="-1"><i class="ph ph-eye" id="toggle-pw-icon"></i></button>
     </div>
     <button id="login-btn">Đăng nhập</button>
   </div>
@@ -66,7 +67,10 @@
 
     document.getElementById('toggle-pw').addEventListener('click', () => {
       const pw = document.getElementById('password');
-      pw.type = pw.type === 'password' ? 'text' : 'password';
+      const icon = document.getElementById('toggle-pw-icon');
+      const show = pw.type === 'password';
+      pw.type = show ? 'text' : 'password';
+      icon.className = show ? 'ph ph-eye-slash' : 'ph ph-eye';
     });
     document.getElementById('login-btn').addEventListener('click', login);
     document.getElementById('password').addEventListener('keydown', e => {

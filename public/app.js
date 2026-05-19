@@ -223,8 +223,7 @@ function renderTable() {
         });
         td0.appendChild(cb);
       } else {
-        td0.textContent = '✓';
-        td0.style.color = '#16a34a';
+        td0.innerHTML = '<i class="ph ph-check" style="color:#16a34a"></i>';
         td0.title = 'Giữ lại (mới nhất)';
       }
 
@@ -260,7 +259,7 @@ function renderTable() {
 
 function updateDeleteBtn() {
   const btn = document.getElementById('delete-btn');
-  btn.textContent = `🗑 Xóa đã chọn (${selectedPaths.size})`;
+  btn.innerHTML = `<i class="ph ph-trash"></i> Xóa đã chọn (${selectedPaths.size})`;
   btn.disabled = selectedPaths.size === 0;
 }
 

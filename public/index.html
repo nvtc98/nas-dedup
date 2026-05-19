@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>NAS Dedup</title>
   <link rel="stylesheet" href="style.css">
+  <script src="https://unpkg.com/@phosphor-icons/web@2.1.1"></script>
 </head>
 <body>
   <div id="app">
@@ -31,7 +32,7 @@
         <input type="checkbox" id="perceptual-toggle" disabled>
         Tìm ảnh trông giống nhau (perceptual hash) — chưa hỗ trợ
       </label>
-      <button id="start-btn">▶ Bắt đầu Scan</button>
+      <button id="start-btn"><i class="ph ph-play"></i> Bắt đầu Scan</button>
     </section>
 
     <!-- Step 2: Scanning -->
@@ -50,7 +51,7 @@
             <input type="checkbox" id="select-folder-all">
             Chọn tất cả trong thư mục này
           </label>
-          <button id="delete-btn" disabled>🗑 Xóa đã chọn (0)</button>
+          <button id="delete-btn" disabled><i class="ph ph-trash"></i> Xóa đã chọn (0)</button>
         </div>
       </div>
       <div id="results-container">
@@ -75,7 +76,7 @@
   <div id="preview-modal" hidden>
     <div id="preview-backdrop"></div>
     <div id="preview-box">
-      <button id="preview-close">✕</button>
+      <button id="preview-close"><i class="ph ph-x"></i></button>
       <img id="preview-img" src="" alt="">
       <p id="preview-name"></p>
     </div>
