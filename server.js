@@ -63,7 +63,7 @@ app.post("/api/login", (req, res) => {
     {
       hostname: "localhost",
       port: 5006,
-      path: "/",
+      path: "/home/",
       method: "PROPFIND",
       headers: {
         Authorization: `Basic ${auth}`,
@@ -140,9 +140,6 @@ app.post("/api/scan", requireAuth, (req, res) => {
     return res.status(400).json({ error: "dir phải là string" });
 
   const resolved = path.resolve(dir);
-  if (resolved !== homeDir && !resolved.startsWith(homeDir + path.sep)) {
-    return res.status(400).json({ error: "Thư mục nằm ngoài home của bạn" });
-  }
 
   state.results = null;
   state.worker = new Worker(path.join(__dirname, "scanner.worker.js"), {
@@ -201,13 +198,17 @@ app.post("/api/delete", requireAuth, (req, res) => {
       continue;
     }
     const resolved = path.resolve(filePath);
-    if (!resolved.startsWith(homeDir + path.sep)) {
-      failed.push({ path: filePath, reason: "Path không được phép" });
-      continue;
-    }
 
-    const relative = path.relative(homeDir, resolved);
-    const recyclePath = path.join(homeDir, "#recycle", relative);
+    // Đưa vào #recycle của shared folder chứa file đó
+    const parts = resolved.split(path.sep);
+    // /volume1/homes/user/... → recycleRoot = /volume1/homes/user
+    // /volume1/Photos/... → recycleRoot = /volume1/Photos
+    const recycleRoot =
+      parts.length >= 4
+        ? path.sep + path.join(parts[1], parts[2], parts[3])
+        : path.dirname(resolved);
+    const relative = path.relative(recycleRoot, resolved);
+    const recyclePath = path.join(recycleRoot, "#recycle", relative);
     const recycleDir = path.dirname(recyclePath);
 
     try {

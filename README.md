@@ -9,20 +9,16 @@ Duplicate file checker for Synology NAS. Scan a directory, identify duplicate fi
 
 ## Install
 
-Upload the following files to `/volume1/Shared/nas-dedup/` via File Station (do not upload `node_modules`):
-
-```
-scan.js
-server.js
-scanner.worker.js
-package.json
-package-lock.json
-public/
-```
-
-Then install dependencies. Run once via Task Scheduler or SSH:
+Copy files to NAS (from local machine):
 
 ```bash
+npm run copy
+```
+
+Then SSH in and install dependencies (run once):
+
+```bash
+npm run ssh
 cd /volume1/Shared/nas-dedup && npm install
 ```
 
@@ -61,24 +57,30 @@ Runs an Express server with an interactive 3-step wizard: configure → scan →
 
 **Requires:** Recycle Bin enabled on the shared folder (DSM → Control Panel → Shared Folder → Edit → Enable Recycle Bin)
 
-```bash
-node /volume1/Shared/nas-dedup/server.js
-```
-
-Open `http://<nas-ip>:8080` in your browser.
-
-Run in background after closing SSH:
+Start (foreground):
 
 ```bash
-nohup node /volume1/Shared/nas-dedup/server.js > /volume1/Shared/nas-dedup/app.log 2>&1 &
+npm start
 ```
 
-Stop: `ps aux | grep server.js` then `kill <PID>`
+Start in background (log written to `server.log`):
+
+```bash
+npm run startbg
+```
+
+Open `http://<nas-ip>:5003` in your browser.
+
+Stop:
+
+```bash
+npm run kill
+```
 
 Custom port:
 
 ```bash
-PORT=5003 nohup node /volume1/Shared/nas-dedup/server.js > app.log 2>&1 &
+PORT=5003 npm run startbg
 ```
 
 ## Notes
