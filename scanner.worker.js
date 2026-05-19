@@ -5,6 +5,19 @@ const crypto = require('crypto');
 
 const SKIP_DIRS = new Set(['#recycle', '@eaDir', '@Recently-Snapshot', '@sharebin', '.DS_Store', '@tmp']);
 
+// controlBuf: Int32Array[0] — 0=running, 1=paused, 2=cancelled
+const controlBuf = workerData.controlBuf ? new Int32Array(workerData.controlBuf) : null;
+
+function getControl() {
+  return controlBuf ? Atomics.load(controlBuf, 0) : 0;
+}
+
+async function waitIfPaused() {
+  while (controlBuf && Atomics.load(controlBuf, 0) === 1) {
+    await new Promise(r => setTimeout(r, 200));
+  }
+}
+
 async function walk(dir, files = []) {
   let entries;
   try {
@@ -13,6 +26,7 @@ async function walk(dir, files = []) {
     return files;
   }
   for (const entry of entries) {
+    if (getControl() === 2) return files;
     if (SKIP_DIRS.has(entry.name) || entry.name.startsWith('@')) continue;
     const fullPath = path.join(dir, entry.name);
     if (entry.isDirectory()) {
@@ -35,12 +49,23 @@ function md5(filePath) {
 }
 
 async function scan() {
-  const { dir, perceptual } = workerData; // perceptual hash not yet implemented
+  const { dir } = workerData;
   const files = await walk(dir);
+  if (getControl() === 2) {
+    parentPort.postMessage({ type: 'cancelled' });
+    return;
+  }
+
   const total = files.length;
   const hashMap = {};
 
   for (let i = 0; i < files.length; i++) {
+    await waitIfPaused();
+    if (getControl() === 2) {
+      parentPort.postMessage({ type: 'cancelled' });
+      return;
+    }
+
     const filePath = files[i];
     try {
       const hash = await md5(filePath);

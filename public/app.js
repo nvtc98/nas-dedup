@@ -75,6 +75,29 @@ document.getElementById('browser-cancel-btn').addEventListener('click', () => {
   document.getElementById('folder-browser').hidden = true;
 });
 
+let isPaused = false;
+
+document.getElementById('pause-btn').addEventListener('click', async () => {
+  const btn = document.getElementById('pause-btn');
+  if (!isPaused) {
+    await fetch('/api/scan/pause', { method: 'POST' });
+    isPaused = true;
+    btn.innerHTML = '<i class="ph ph-play"></i> Tiếp tục';
+    btn.style.background = '#16a34a';
+    document.getElementById('progress-text').textContent += ' (đã tạm dừng)';
+  } else {
+    await fetch('/api/scan/resume', { method: 'POST' });
+    isPaused = false;
+    btn.innerHTML = '<i class="ph ph-pause"></i> Tạm dừng';
+    btn.style.background = '#f59e0b';
+  }
+});
+
+document.getElementById('cancel-btn').addEventListener('click', async () => {
+  if (!confirm('Hủy scan? Kết quả đã scan được sẽ mất.')) return;
+  await fetch('/api/scan/cancel', { method: 'POST' });
+});
+
 // --- Step navigation ---
 function showStep(n) {
   [1, 2, 3].forEach(i => {
@@ -90,6 +113,9 @@ document.getElementById('start-btn').addEventListener('click', async () => {
   const perceptual = document.getElementById('perceptual-toggle').checked;
 
   showStep(2);
+  isPaused = false;
+  document.getElementById('pause-btn').innerHTML = '<i class="ph ph-pause"></i> Tạm dừng';
+  document.getElementById('pause-btn').style.background = '#f59e0b';
   const es = startSSE();
 
   const res = await fetch('/api/scan', {
@@ -150,6 +176,17 @@ function startSSE() {
         };
         document.getElementById('step-2').appendChild(retryBtn);
       }
+    } else if (msg.type === 'cancelled') {
+      es.close();
+      isPaused = false;
+      document.getElementById('pause-btn').innerHTML = '<i class="ph ph-pause"></i> Tạm dừng';
+      document.getElementById('pause-btn').style.background = '#f59e0b';
+      text.textContent = 'Đã hủy scan.';
+      const backBtn = document.createElement('button');
+      backBtn.innerHTML = '<i class="ph ph-arrow-left"></i> Quay lại';
+      backBtn.style.marginTop = '12px';
+      backBtn.onclick = () => showStep(1);
+      document.getElementById('step-2').appendChild(backBtn);
     } else if (msg.type === 'error') {
       es.close();
       text.textContent = 'Lỗi: ' + msg.message;

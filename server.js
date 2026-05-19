@@ -27,7 +27,7 @@ const sessionStates = new Map();
 
 function getState(sid) {
   if (!sessionStates.has(sid)) {
-    sessionStates.set(sid, { worker: null, results: null, clients: [] });
+    sessionStates.set(sid, { worker: null, results: null, clients: [], controlBuf: null });
   }
   return sessionStates.get(sid);
 }
@@ -159,8 +159,12 @@ app.post("/api/scan", requireAuth, (req, res) => {
   const resolved = path.resolve(dir);
 
   state.results = null;
+  const controlBuf = new SharedArrayBuffer(4);
+  state.controlBuf = new Int32Array(controlBuf);
+  Atomics.store(state.controlBuf, 0, 0);
+
   state.worker = new Worker(path.join(__dirname, "scanner.worker.js"), {
-    workerData: { dir: resolved, perceptual },
+    workerData: { dir: resolved, perceptual, controlBuf },
   });
 
   state.worker.on("message", (msg) => {
@@ -168,15 +172,22 @@ app.post("/api/scan", requireAuth, (req, res) => {
       broadcast(sid, { type: "progress", count: msg.count, total: msg.total });
     } else if (msg.type === "done") {
       state.results = msg.groups;
+      state.controlBuf = null;
       broadcast(sid, { type: "done" });
       state.worker = null;
+    } else if (msg.type === "cancelled") {
+      state.controlBuf = null;
+      broadcast(sid, { type: "cancelled" });
+      state.worker = null;
     } else if (msg.type === "error") {
+      state.controlBuf = null;
       broadcast(sid, { type: "error", message: msg.message });
       state.worker = null;
     }
   });
 
   state.worker.on("error", (err) => {
+    state.controlBuf = null;
     broadcast(sid, { type: "error", message: err.message });
     state.worker = null;
   });
@@ -191,6 +202,27 @@ app.post("/api/scan", requireAuth, (req, res) => {
     }
   });
 
+  res.json({ ok: true });
+});
+
+app.post("/api/scan/pause", requireAuth, (req, res) => {
+  const state = getState(req.session.id);
+  if (!state.controlBuf) return res.status(400).json({ error: "Không có scan đang chạy" });
+  Atomics.store(state.controlBuf, 0, 1);
+  res.json({ ok: true });
+});
+
+app.post("/api/scan/resume", requireAuth, (req, res) => {
+  const state = getState(req.session.id);
+  if (!state.controlBuf) return res.status(400).json({ error: "Không có scan đang chạy" });
+  Atomics.store(state.controlBuf, 0, 0);
+  res.json({ ok: true });
+});
+
+app.post("/api/scan/cancel", requireAuth, (req, res) => {
+  const state = getState(req.session.id);
+  if (!state.controlBuf) return res.status(400).json({ error: "Không có scan đang chạy" });
+  Atomics.store(state.controlBuf, 0, 2);
   res.json({ ok: true });
 });
 
