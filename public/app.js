@@ -93,9 +93,14 @@ document.getElementById('pause-btn').addEventListener('click', async () => {
   }
 });
 
-document.getElementById('cancel-btn').addEventListener('click', async () => {
-  if (!confirm('Hủy scan? Kết quả đã scan được sẽ mất.')) return;
-  await fetch('/api/scan/cancel', { method: 'POST' });
+document.getElementById('cancel-btn').addEventListener('click', () => {
+  showConfirm({
+    title: 'Hủy scan',
+    body: 'Hủy scan? Kết quả đã scan được sẽ mất.',
+    onOk: async () => {
+      await fetch('/api/scan/cancel', { method: 'POST' });
+    }
+  });
 });
 
 // --- Step navigation ---
@@ -138,14 +143,14 @@ document.getElementById('start-btn').addEventListener('click', async () => {
   if (res.status === 409) {
     es.close();
     showStep(1);
-    alert('Scan đang chạy, vui lòng chờ.');
+    showConfirm({ title: 'Thông báo', body: 'Scan đang chạy, vui lòng chờ.', onOk: () => {} });
     return;
   }
   if (!res.ok) {
     es.close();
     showStep(1);
     const err = await res.json();
-    alert('Lỗi: ' + err.error);
+    showConfirm({ title: 'Lỗi', body: 'Lỗi: ' + err.error, onOk: () => {} });
     return;
   }
 });
