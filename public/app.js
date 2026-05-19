@@ -467,7 +467,6 @@ document.getElementById('delete-btn').addEventListener('click', () => {
     }
   });
 });
-});
 
 document.getElementById('rescan-btn').addEventListener('click', () => {
   allGroups = [];
